@@ -1,22 +1,42 @@
 from fastapi import APIRouter, Body, Request, Response, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 from typing import List
+import json
 
 from Models.QueueModel import Queue
+from Services.queue_service import UserQueue
 
 router = APIRouter()
 
-@router.post("/", response_description = "Create a new Queue", status_code = status.HTTP_201_CREATED, response_model = Queue)
+@router.post("/create_queue", response_description = "Create a new Queue", status_code = status.HTTP_201_CREATED) #response_model = Queue
 def create_queue(request: Request, queue: Queue = Body(...)):
-    queue = jsonable_encoder(queue)
-    # new_queue = request.app.database["CandleStick"].insert_one(candleStick)
-    # created_book = request.app.database["CandleStick"].find_one(
-        # {"_id": new_book.inserted_id}
-    # )
+    
+    user_queue = UserQueue(queue.userName, queue.symbol)
 
-    return queue
+    queue_json = jsonable_encoder(queue)
+    result = user_queue.start_feeding(user_queue)
 
+    response = {
+        "Status": status.HTTP_200_OK,
+        "Message": result,
+        "Data": queue_json
+    }
+    return response
 
+@router.post("/stop_queue", response_description = "Stop an existing Queue", status_code = status.HTTP_201_CREATED) #response_model = Queue
+def stop_queue(request: Request, queue: Queue = Body(...)):
+    
+    user_queue = UserQueue(queue.userName, queue.symbol)
+    
+    queue_json = jsonable_encoder(queue)
+    result = user_queue.stop_feeding(user_queue)
+
+    response = {
+        "Status": status.HTTP_200_OK,
+        "Message": result,
+        "Data": queue_json
+    }
+    return response
 # @router.get("/", response_description="List all ", response_model=List[Book])
 # def list_books(request: Request):
 #     books = list(request.app.database["books"].find(limit=100))

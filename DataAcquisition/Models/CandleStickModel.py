@@ -3,6 +3,7 @@ import uuid
 
 class CandleStick(Document):
     id = UUIDField()
+    ticker_id = UUIDField()
     timestamp = DateTimeField()
     length = StringField()
     high = StringField()
@@ -15,9 +16,10 @@ class CandleStick(Document):
     quote_asset_volume = StringField()
     trade_number = StringField()
 
-    def _init__(self, timestamp, length, high, low, open, close , volume, open_time, close_time, quote_asset_volume, trade_number):
+    def _init__(self, timestamp, ticker_id, length, high, low, open, close , volume, open_time, close_time, quote_asset_volume, trade_number):
         self.candle_stick_id = uuid.uuid4
         self.timestamp = timestamp
+        self.ticker_id = ticker_id
         self.length = length
         self.high = high
         self.low = low

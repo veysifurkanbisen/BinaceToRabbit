@@ -26,7 +26,7 @@ async def startup_event():
 async def shutdown_event():
     app.mongodb_client.close()
 
-app.include_router(queue_router, tags=["queue"], prefix="/queue")
+app.include_router(queue_router, tags=["Queue Operations"], prefix="/queues")
 
 
 
