@@ -35,5 +35,6 @@ class Binance():
             url += '&' + paramters["endTime"] + str(self.endTime)
 
         data = requests.get(url).json()
+        print("data", data, "\n" + url)
 
         return data

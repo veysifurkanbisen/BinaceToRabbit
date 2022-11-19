@@ -1,5 +1,6 @@
 import time as Time
 import datetime
+import schedule
 from Services.binance_service import Binance
 from Services.db_service import add_new_candle_stick as SaveCandleStick
 from Services.db_service import add_new_ticker as SaveTicker
@@ -11,78 +12,106 @@ from Models.TickerModel import Ticker
 
 current_user_options = {
     "symbol": "BTCUSDT",
-    "interval": "1h"
+    "interval": "1d"
 }
 
-database_record_intervals = {
+intervals = {
     "interval_1": "1m",
     "interval_2": "15m",
     "interval_3": "1h",
     "interval_4": "4h",
-    "interval_5": "1d"
-
+    "interval_5": "1d",
 }
 
-
 def work(app):
+    # Save To DB
+    schedule.every().minute.at(":00").do(interval_job_1m, app=app, symbol=current_user_options["symbol"], interval=intervals["interval_1"])
+    schedule.every().minute.at(":00").do(interval_job_15m, app=app, symbol=current_user_options["symbol"], interval=intervals["interval_2"])
+    schedule.every().hour.at("00:00").do(interval_job_1h, app=app, symbol=current_user_options["symbol"], interval=intervals["interval_3"])
+    schedule.every().hour.at("00:00").do(interval_job_4h, app=app, symbol=current_user_options["symbol"], interval=intervals["interval_4"])
+    schedule.every().day.at("00:00:00").do(interval_job_1d, app=app, symbol=current_user_options["symbol"], interval=intervals["interval_5"])
+
     while True:
-        # CHECK TIME FOR INTERVAL
-        time = get_time()
-        interval = 0
-        today = datetime.datetime.utcnow()
-        tomorrow = today + datetime.timedelta(days=1)
-        # print(today.timestamp() * 1000, "\n" , tomorrow.timestamp())
+        schedule.run_pending()
 
-        # Save To Database
-        if time == database_record_intervals["interval_1"]:
-            # Feed Queue
-            if len(UserQueue.users) > 0:
-                pass
-            pass
-        if time == database_record_intervals["interval_2"]:
-            pass
-        if time == database_record_intervals["interval_3"]:
-            pass
-        if time == database_record_intervals["interval_4"]:
-            pass
-        if time == database_record_intervals["interval_5"]:
-            pass
+def interval_job_1m(app, symbol, interval):
+    print(interval)
+    time = datetime.datetime.utcnow().replace(microsecond=0)
+    now = time
+    before = time - datetime.timedelta(minutes=1)
+
+    available_times = [0, 15,16, 17, 18, 19, 30, 45]
+    if time.minute in available_times:
+        print("AAAAAAAAAAAAAAAAAAAAAAAA")
 
 
-        # candle_sticks = generate_binance_object(current_user_options["symbol"], current_user_options["interval"], today, tomorrow)
-        # save_candle_stick_and_ticker(app, candle_sticks, symbol, interval)
-        # Time.sleep(5)
+    candle_sticks = generate_binance_object(symbol, interval, before, now)
+    save_candle_stick_and_ticker(app, candle_sticks, symbol, interval)
 
-def get_time():
-    return 0
+def interval_job_15m(app, symbol, interval):
+    print(interval)
+    time = datetime.datetime.utcnow().replace(microsecond=0)
+    now = time
+    before = time - datetime.timedelta(minutes=15)
+
+    available_times = [0, 15, 30, 45]
+    if time.minute in available_times:
+        candle_sticks = generate_binance_object(symbol, interval, before, now)
+        save_candle_stick_and_ticker(app, candle_sticks, symbol, interval)
+
+def interval_job_1h(app, symbol, interval):
+    print(interval)
+    time = datetime.datetime.utcnow().replace(microsecond=0)
+    now = time
+    before = time - datetime.timedelta(hours=1)
+
+    candle_sticks = generate_binance_object(symbol, interval, before, now)
+    save_candle_stick_and_ticker(app, candle_sticks, symbol, interval)
+
+def interval_job_4h(app, symbol, interval):
+    print(interval)
+    time = datetime.datetime.utcnow().replace(microsecond=0)
+    now = time
+    before = time - datetime.timedelta(hours=4)
+    
+    available_times = [0, 4, 8, 12, 16, 20]
+    if time.hour in available_times:
+        candle_sticks = generate_binance_object(symbol, interval, before, now)
+        save_candle_stick_and_ticker(app, candle_sticks, symbol, interval)
+    
+def interval_job_1d(app,  symbol, interval):
+    print(interval)
+    time = datetime.datetime.utcnow().replace(microsecond=0)
+    now = time
+    before = time - datetime.timedelta(days=1)
+
+    candle_sticks = generate_binance_object(symbol, interval, before, now)
+    save_candle_stick_and_ticker(app, candle_sticks, symbol, interval)
 
 def generate_binance_object(symbol, interval, start_date, end_date):
+    print(start_date, "-", end_date)
     binance = Binance()
     binance.symbol = symbol
     binance.interval = interval
-    binance.startTime = int(start_date.timestamp())*1000
-    binance.endTime = int(end_date.timestamp())*1000
+    binance.startTime = int(start_date.timestamp()) * 1000
+    binance.endTime = int(end_date.timestamp()) * 1000
 
     data = binance.get_binance_data()
 
-    # print(data)
     return data
         
 def save_candle_stick_and_ticker(app, candleSticks, symbol, interval):
-    print(candleSticks)
-    
+    print("Saving...")
     for candleStick in candleSticks:
-
+        print("candleStick", candleStick)
         tickerModel = Ticker()
+        tickerModel.timestamp = str(datetime.datetime.utcnow())
         tickerModel.interval = interval
         tickerModel.symbol = symbol
 
-        is_ticker_exists = db_service.check_if_ticker_exists(app, tickerModel)
-        if is_ticker_exists:
-            ticker_id = db_service.get_ticker_id(app, tickerModel)
-        else:
-            ticker_id = SaveTicker(app, tickerModel)
-
+        ticker_id = db_service.get_ticker_id(app, interval, symbol)
+        if ticker_id == None:
+            ticker_id = SaveTicker(app, tickerModel.to_mongo())
 
         candleStickModel = CandleStick()
         candleStickModel.timestamp = str(datetime.datetime.utcnow())
@@ -98,14 +127,15 @@ def save_candle_stick_and_ticker(app, candleSticks, symbol, interval):
         candleStickModel.trade_number = str(candleStick[8])
 
         candle_stick_id = SaveCandleStick(app, candleStickModel.to_mongo())
-        # print(id)
 
 
-    
-    return None
+def feed_queue():
+    # Feed User Queues
+    for user in UserQueue.eixsting_users:
+        print (user)
 
 
-def feed_queue(user_name, symbol, interval, candle_stick):
-
-    return
+    while True:
+        print("feed_queue")
+        Time.sleep(1)
     
