@@ -1,6 +1,9 @@
 import json
+from dotenv import dotenv_values
 
-def write_json(new_data, filename='UserData.json'):
+config = dotenv_values()
+
+def write_json(new_data, filename=config["UserData"]):
   with open(filename,'r+') as file:
     print(new_data)
     file_data = json.load(file)
@@ -9,7 +12,7 @@ def write_json(new_data, filename='UserData.json'):
     json.dump(file_data, file, indent = 4)
 
 
-def delete_json(remove_data, filename="UserData.json"):
+def delete_json(remove_data, filename=config["UserData"]):
   with open(filename, 'r+') as file:
     file_data = json.load(file)
     user_list = file_data["users"]
@@ -21,7 +24,7 @@ def delete_json(remove_data, filename="UserData.json"):
   with open(filename, 'w', encoding='utf-8') as file:
     file.write(json.dumps(file_data, indent=2))
 
-def read_json(filename = "UserData.json"):
+def read_json(filename = config["UserData"]):
   with open(filename, 'r') as file:
     file_data = json.load(file)
   return file_data["users"]
