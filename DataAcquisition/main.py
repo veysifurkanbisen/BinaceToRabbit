@@ -6,36 +6,26 @@ from pymongo import MongoClient
 from Routes.queue_routes import router as queue_router
 import asyncio
 import threading
-import schedule
-import time
 
-
-settings = {
-    "MongoDB_Uri": "mongodb://127.0.0.1:27017",
-    "DB_Name": "BinanceToRabbit",
-    "Collections": [
-        "CandleStick",
-        "Ticker"
-    ]
-}
+config = dotenv_values()
 
 app = FastAPI()
 @app.on_event("startup")
 async def startup_event():
-    app.mongodb_client = MongoClient(settings["MongoDB_Uri"])
-    app.database = app.mongodb_client[settings["DB_Name"]]
+    app.mongodb_client = MongoClient(config["MongoDB_Uri"])
+    app.database = app.mongodb_client[config["DB_Name"]]
 
-    for collection in settings["Collections"]:
-        try:
-             app.database.create_collection(collection)
-        except:
-            pass
+    try:
+        app.database.create_collection(config["Collection_CandleStick"])
+        app.database.create_collection(config["Collection_Ticker"])
+    except:
+        pass
 
     thread_db = threading.Thread(target=lambda: asyncio.run(StartDbLoop(app)))
     thread_db.setName("thread_db")
     thread_db.start()
 
-    thread_queue = threading.Thread(target=lambda: asyncio.run(StartQueueLoop()))
+    thread_queue = threading.Thread(target=lambda: asyncio.run(StartQueueLoop(app)))
     thread_queue.setName("thread_queue")
     thread_queue.start()
 

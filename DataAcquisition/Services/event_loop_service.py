@@ -5,91 +5,76 @@ from Services.binance_service import Binance
 from Services.db_service import add_new_candle_stick as SaveCandleStick
 from Services.db_service import add_new_ticker as SaveTicker
 from Services import db_service
+from Utils import json_util
 from Services.queue_service import UserQueue
 from Models.CandleStickModel import CandleStick
 from Models.TickerModel import Ticker
+from dotenv import dotenv_values
 
-
-current_user_options = {
-    "symbol": "BTCUSDT",
-    "interval": "1d"
-}
-
-intervals = {
-    "interval_1": "1m",
-    "interval_2": "15m",
-    "interval_3": "1h",
-    "interval_4": "4h",
-    "interval_5": "1d",
-}
+config = dotenv_values()
 
 def work(app):
     # Save To DB
-    schedule.every().minute.at(":00").do(interval_job_1m, app=app, symbol=current_user_options["symbol"], interval=intervals["interval_1"])
-    schedule.every().minute.at(":00").do(interval_job_15m, app=app, symbol=current_user_options["symbol"], interval=intervals["interval_2"])
-    schedule.every().hour.at("00:00").do(interval_job_1h, app=app, symbol=current_user_options["symbol"], interval=intervals["interval_3"])
-    schedule.every().hour.at("00:00").do(interval_job_4h, app=app, symbol=current_user_options["symbol"], interval=intervals["interval_4"])
-    schedule.every().day.at("00:00:00").do(interval_job_1d, app=app, symbol=current_user_options["symbol"], interval=intervals["interval_5"])
+    schedule.every().minute.at(":00").do(interval_job_1m, app=app, symbol=config["Symbol"], interval=config["Interval_1"], is_queue=False)
+    schedule.every().minute.at(":00").do(interval_job_15m, app=app, symbol=config["Symbol"], interval=config["Interval_2"], is_queue=False)
+    schedule.every().hour.at("00:00").do(interval_job_1h, app=app, symbol=config["Symbol"], interval=config["Interval_3"], is_queue=False)
+    schedule.every().hour.at("00:00").do(interval_job_4h, app=app, symbol=config["Symbol"], interval=config["Interval_4"], is_queue=False)
+    schedule.every().day.at("00:00:00").do(interval_job_1d, app=app, symbol=config["Symbol"], interval=config["Interval_5"], is_queue=False)
 
     while True:
         schedule.run_pending()
 
-def interval_job_1m(app, symbol, interval):
-    print(interval)
+def interval_job_1m(app, symbol, interval, is_queue):
+
     time = datetime.datetime.utcnow().replace(microsecond=0)
     now = time
     before = time - datetime.timedelta(minutes=1)
 
-    available_times = [0, 15,16, 17, 18, 19, 30, 45]
-    if time.minute in available_times:
-        print("AAAAAAAAAAAAAAAAAAAAAAAA")
-
-
     candle_sticks = generate_binance_object(symbol, interval, before, now)
-    save_candle_stick_and_ticker(app, candle_sticks, symbol, interval)
+    result = save_candle_stick_and_ticker(app, candle_sticks, symbol, interval, is_queue)
+    return result
 
-def interval_job_15m(app, symbol, interval):
-    print(interval)
+def interval_job_15m(app, symbol, interval, is_queue):
     time = datetime.datetime.utcnow().replace(microsecond=0)
     now = time
     before = time - datetime.timedelta(minutes=15)
 
     available_times = [0, 15, 30, 45]
-    if time.minute in available_times:
+    if time.minute in available_times or is_queue:
         candle_sticks = generate_binance_object(symbol, interval, before, now)
-        save_candle_stick_and_ticker(app, candle_sticks, symbol, interval)
+        result = save_candle_stick_and_ticker(app, candle_sticks, symbol, interval, is_queue)
+        return result
 
-def interval_job_1h(app, symbol, interval):
-    print(interval)
+def interval_job_1h(app, symbol, interval, is_queue):
     time = datetime.datetime.utcnow().replace(microsecond=0)
     now = time
     before = time - datetime.timedelta(hours=1)
 
     candle_sticks = generate_binance_object(symbol, interval, before, now)
-    save_candle_stick_and_ticker(app, candle_sticks, symbol, interval)
+    result = save_candle_stick_and_ticker(app, candle_sticks, symbol, interval, is_queue)
+    return result
 
-def interval_job_4h(app, symbol, interval):
-    print(interval)
+def interval_job_4h(app, symbol, interval, is_queue):
     time = datetime.datetime.utcnow().replace(microsecond=0)
     now = time
     before = time - datetime.timedelta(hours=4)
     
     available_times = [0, 4, 8, 12, 16, 20]
-    if time.hour in available_times:
+    if time.hour in available_times or is_queue:
         candle_sticks = generate_binance_object(symbol, interval, before, now)
-        save_candle_stick_and_ticker(app, candle_sticks, symbol, interval)
+        result = save_candle_stick_and_ticker(app, candle_sticks, symbol, interval, is_queue)
+        return result
     
-def interval_job_1d(app,  symbol, interval):
-    print(interval)
+def interval_job_1d(app, symbol, interval, is_queue):
     time = datetime.datetime.utcnow().replace(microsecond=0)
     now = time
     before = time - datetime.timedelta(days=1)
 
     candle_sticks = generate_binance_object(symbol, interval, before, now)
-    save_candle_stick_and_ticker(app, candle_sticks, symbol, interval)
+    result = save_candle_stick_and_ticker(app, candle_sticks, symbol, interval, is_queue)
+    return result
 
 def generate_binance_object(symbol, interval, start_date, end_date):
-    print(start_date, "-", end_date)
     binance = Binance()
     binance.symbol = symbol
     binance.interval = interval
@@ -100,16 +85,17 @@ def generate_binance_object(symbol, interval, start_date, end_date):
 
     return data
         
-def save_candle_stick_and_ticker(app, candleSticks, symbol, interval):
-    print("Saving...")
+def save_candle_stick_and_ticker(app, candleSticks, symbol, interval, is_queue = False):
     for candleStick in candleSticks:
-        print("candleStick", candleStick)
         tickerModel = Ticker()
         tickerModel.timestamp = str(datetime.datetime.utcnow())
         tickerModel.interval = interval
         tickerModel.symbol = symbol
-
-        ticker_id = db_service.get_ticker_id(app, interval, symbol)
+        
+        ticker_id = 0
+        if not is_queue:
+            # print("Saving...")
+            ticker_id = db_service.get_ticker_id(app, interval, symbol)
         if ticker_id == None:
             ticker_id = SaveTicker(app, tickerModel.to_mongo())
 
@@ -125,17 +111,40 @@ def save_candle_stick_and_ticker(app, candleSticks, symbol, interval):
         candleStickModel.close_time = str(candleStick[6])
         candleStickModel.quote_asset_volume = str(candleStick[7])
         candleStickModel.trade_number = str(candleStick[8])
+        
+        if not is_queue:
+            # print("Saving...")
+            candle_stick_id = SaveCandleStick(app, candleStickModel.to_mongo())
+    
+    result = {
+        "CandleStick": candleStickModel.to_json(),
+        "Ticker": tickerModel.to_json()
+    }
+    return result
 
-        candle_stick_id = SaveCandleStick(app, candleStickModel.to_mongo())
-
-
-def feed_queue():
+def feed_queue(app):
     # Feed User Queues
-    for user in UserQueue.eixsting_users:
-        print (user)
-
-
     while True:
-        print("feed_queue")
-        Time.sleep(1)
+        print("Sending Queue...")
+        user_list = json_util.read_json()
+        for user in user_list:            
+            interval_1_queue = user["user_name"] + "." + user["symbol"] + "." + config["Interval_1"]
+            interval_2_queue = user["user_name"] + "." + user["symbol"] + "." + config["Interval_2"]
+            interval_3_queue = user["user_name"] + "." + user["symbol"] + "." + config["Interval_3"]
+            interval_4_queue = user["user_name"] + "." + user["symbol"] + "." + config["Interval_4"]
+            interval_5_queue = user["user_name"] + "." + user["symbol"] + "." + config["Interval_5"]
+
+            interval_1_message = interval_job_1m(app, user["symbol"], config["Interval_1"], is_queue=True)
+            interval_2_message = interval_job_15m(app, user["symbol"], config["Interval_2"], is_queue=True)
+            interval_3_message = interval_job_1h(app, user["symbol"], config["Interval_3"], is_queue=True)
+            interval_4_message = interval_job_4h(app, user["symbol"], config["Interval_4"], is_queue=True)
+            interval_5_message = interval_job_1d(app, user["symbol"], config["Interval_5"], is_queue=True)
+
+            UserQueue(user["user_name"], user["symbol"]).feed_queues(interval_1_message, interval_1_queue)
+            UserQueue(user["user_name"], user["symbol"]).feed_queues(interval_2_message, interval_2_queue)
+            UserQueue(user["user_name"], user["symbol"]).feed_queues(interval_3_message, interval_3_queue)
+            UserQueue(user["user_name"], user["symbol"]).feed_queues(interval_4_message, interval_4_queue)
+            UserQueue(user["user_name"], user["symbol"]).feed_queues(interval_5_message, interval_5_queue)
+
+        Time.sleep(int(config["Frequency"]))
     

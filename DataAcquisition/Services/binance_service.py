@@ -4,19 +4,9 @@ import requests
 # import os
 # from pathlib import Path
 import datetime
+from dotenv import dotenv_values
 
-# env_path = Path('.') / '.env'
-# load_dotenv(dotenv_path = env_path)
-# config = dotenv_values(".env")
-uri = "https://api.binance.com"
-path = "/api/v3/klines"
-
-paramters = {
-    "symbol": 'symbol=',
-    "interval": 'interval=',
-    "startTime": 'startTime=',
-    "endTime": 'endTime='
-}
+config = dotenv_values()
 
 class Binance():
     
@@ -27,14 +17,12 @@ class Binance():
         self.endTime = endTime
 
     def get_binance_data(self):
-        url = uri + path + '?' + paramters["symbol"] + self.symbol + '&' + paramters["interval"] + self.interval
+        url = config["Binance_URI"] + config["Binance_Path"] + '?' + config["Binance_Params_Symbol"] + self.symbol + '&' + config["Binance_Params_Interval"] + self.interval
 
         if self.startTime is not None:
-            url += '&' + paramters["startTime"] + str(self.startTime)
+            url += '&' + config["Binance_Params_StartTime"] + str(self.startTime)
         if self.endTime is not None:
-            url += '&' + paramters["endTime"] + str(self.endTime)
+            url += '&' + config["Binance_Params_EndTime"] + str(self.endTime)
 
         data = requests.get(url).json()
-        print("data", data, "\n" + url)
-
         return data
